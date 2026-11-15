@@ -47,6 +47,11 @@ export function getDb(): Client {
 /** Ensures the schema exists before the first query. Safe to call repeatedly. */
 export async function ensureDb(): Promise<Client> {
   const db = getDb();
+  // In production, tables are already created during `npm run db:init`.
+  // Skipping redundant DDL checks saves 3 sequential network round-trips on every serverless lambda cold start.
+  if (process.env.NODE_ENV === "production" && !process.env.FORCE_DB_INIT) {
+    return db;
+  }
   if (!globalForDb.__sdsdDbReady) {
     globalForDb.__sdsdDbReady = (async () => {
       await db.executeMultiple(SCHEMA_SQL);
