@@ -1,0 +1,108 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
+import { createClient, type Client } from "@libsql/client";
+import { SCHEMA_SQL } from "./schema";
+
+/**
+ * A single libSQL client is reused across hot reloads and server requests.
+ * Local dev uses `file:data/app.db`; production can point at Turso via env.
+ */
+const globalForDb = globalThis as unknown as {
+  __sdsdDb?: Client;
+  __sdsdDbReady?: Promise<void>;
+};
+
+function ensureDataDirectory(url: string): void {
+  if (!url.startsWith("file:")) return;
+  const filePath = url.slice("file:".length);
+  const directory = path.dirname(filePath);
+  if (!directory || directory === ".") return;
+  try {
+    mkdirSync(directory, { recursive: true });
+  } catch {
+    // If the directory cannot be created, libSQL will surface a clear error.
+  }
+}
+
+export function getDb(): Client {
+  if (!globalForDb.__sdsdDb) {
+    const url = process.env.DATABASE_URL ?? "file:data/app.db";
+    ensureDataDirectory(url);
+    globalForDb.__sdsdDb = createClient({
+      url,
+      authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+    });
+  }
+  return globalForDb.__sdsdDb;
+}
+
+/** Ensures the schema exists before the first query. Safe to call repeatedly. */
+export async function ensureDb(): Promise<Client> {
+  const db = getDb();
+  if (!globalForDb.__sdsdDbReady) {
+    globalForDb.__sdsdDbReady = (async () => {
+      await db.executeMultiple(SCHEMA_SQL);
+      await migrateAdminAccounts(db);
+      await ensureBootstrapSuperAdmin(db);
+    })();
+  }
+  await globalForDb.__sdsdDbReady;
+  return db;
+}
+
+/**
+ * Columns added to `admins` after the first release. `CREATE TABLE IF NOT
+ * EXISTS` cannot add columns to an existing table, so we check and alter.
+ */
+const ADMIN_COLUMNS: Array<[string, string]> = [
+  ["role", "TEXT NOT NULL DEFAULT 'staff'"],
+  ["is_active", "INTEGER NOT NULL DEFAULT 1"],
+  ["must_change_password", "INTEGER NOT NULL DEFAULT 0"],
+  ["session_version", "INTEGER NOT NULL DEFAULT 1"],
+  ["last_login_at", "TEXT"],
+  ["password_changed_at", "TEXT"],
+];
+
+async function migrateAdminAccounts(db: Client): Promise<void> {
+  const info = await db.execute("PRAGMA table_info(admins)");
+  const existing = new Set(info.rows.map((row) => String(row.name)));
+
+  for (const [name, definition] of ADMIN_COLUMNS) {
+    if (existing.has(name)) continue;
+    await db.execute(`ALTER TABLE admins ADD COLUMN ${name} ${definition}`);
+  }
+}
+
+/**
+ * Guarantees at least one active super admin so the office can never be
+ * locked out of account management. Prefers the env-configured first admin.
+ */
+async function ensureBootstrapSuperAdmin(db: Client): Promise<void> {
+  const supers = await db.execute(
+    "SELECT COUNT(*) AS n FROM admins WHERE role = 'super_admin' AND is_active = 1",
+  );
+  if (Number(supers.rows[0]?.n ?? 0) > 0) return;
+
+  const preferred = process.env.ADMIN1_USERNAME ?? "admin1";
+  const byUsername = await db.execute({
+    sql: "SELECT id FROM admins WHERE username = ? LIMIT 1",
+    args: [preferred],
+  });
+
+  const target =
+    byUsername.rows[0]?.id ??
+    (
+      await db.execute(
+        "SELECT id FROM admins WHERE is_active = 1 ORDER BY id ASC LIMIT 1",
+      )
+    ).rows[0]?.id;
+
+  if (target === undefined || target === null) return; // No accounts yet.
+
+  await db.execute({
+    sql: "UPDATE admins SET role = 'super_admin' WHERE id = ?",
+    args: [target],
+  });
+}
+
+export const db = getDb();

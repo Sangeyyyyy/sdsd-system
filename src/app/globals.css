@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* DNSC seal palette: deep forest green + bright gold. */
+  --color-brand-50: #f0f9f1;
+  --color-brand-100: #dcf1df;
+  --color-brand-200: #bae3c1;
+  --color-brand-300: #8bcf96;
+  --color-brand-400: #57b368;
+  --color-brand-500: #2f9443;
+  --color-brand-600: #0b6b1f;
+  --color-brand-700: #095618;
+  --color-brand-800: #084714;
+  --color-brand-900: #073a12;
+  --color-brand-950: #03220a;
+
+  --color-gold-50: #fffbeb;
+  --color-gold-100: #fff5c7;
+  --color-gold-200: #ffea85;
+  --color-gold-300: #ffdf45;
+  --color-gold-400: #f7d117;
+  --color-gold-500: #e6bc00;
+  --color-gold-600: #c69a00;
+  --color-gold-700: #9e7602;
+  --color-gold-800: #836008;
+  --color-gold-900: #6e500d;
+  --color-gold-950: #403000;
+
+  /* Existing components use `indigo`; point it at the DNSC green ramp. */
+  --color-indigo-50: #f0f9f1;
+  --color-indigo-100: #dcf1df;
+  --color-indigo-200: #bae3c1;
+  --color-indigo-300: #8bcf96;
+  --color-indigo-400: #57b368;
+  --color-indigo-500: #2f9443;
+  --color-indigo-600: #0b6b1f;
+  --color-indigo-700: #095618;
+  --color-indigo-800: #084714;
+  --color-indigo-900: #073a12;
+  --color-indigo-950: #03220a;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: var(--font-sans);
+}
+
+.hero-glow {
+  background:
+    radial-gradient(60rem 30rem at 15% -15%, rgba(11, 107, 31, 0.16), transparent 60%),
+    radial-gradient(45rem 25rem at 100% 0%, rgba(247, 209, 23, 0.18), transparent 60%);
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .brand-mark {
+    @apply inline-flex items-center justify-center rounded-xl bg-brand-700 font-bold text-gold-300 shadow-sm;
+  }
+
+  /*
+   * Focus indicators are solid rather than translucent: a 30% ring blends to
+   * roughly 1.4:1 against white, so it is effectively invisible. Solid
+   * indigo-500 measures 3.86:1, which clears WCAG 2.2 SC 1.4.11 (3:1).
+   */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+
+  .data-table thead th {
+    @apply whitespace-nowrap border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .data-table tbody td {
+    @apply border-b border-slate-100 px-4 py-3 align-middle text-slate-700;
+  }
+
+  .data-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-slate-50/70;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .print-surface {
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  .print-break {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}

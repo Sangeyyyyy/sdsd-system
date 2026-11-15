@@ -1,0 +1,42 @@
+{
+  "name": "sdsd-appointment-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SDSD Q — first-year ID verification appointment and queue system",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:init": "tsx scripts/init-db.ts",
+    "db:import": "tsx scripts/import-roster.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "test:booking": "tsx scripts/test-booking.ts",
+    "test:admin": "tsx scripts/test-admin.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
+    "jose": "^6.2.17",
+    "lucide-react": "^1.72.0",
+    "next": "^16.4.6",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "^26.6.6",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "postcss": "^8.5.33",
+    "tailwindcss": "^4.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
