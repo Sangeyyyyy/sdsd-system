@@ -26,11 +26,19 @@ function ensureDataDirectory(url: string): void {
 
 export function getDb(): Client {
   if (!globalForDb.__sdsdDb) {
-    const url = process.env.DATABASE_URL ?? "file:data/app.db";
+    const url =
+      process.env.DATABASE_URL ||
+      process.env.TURSO_DATABASE_URL ||
+      "file:data/app.db";
+    const authToken =
+      process.env.DATABASE_AUTH_TOKEN ||
+      process.env.TURSO_AUTH_TOKEN ||
+      undefined;
+
     ensureDataDirectory(url);
     globalForDb.__sdsdDb = createClient({
       url,
-      authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+      authToken,
     });
   }
   return globalForDb.__sdsdDb;
