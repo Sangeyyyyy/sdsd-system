@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
 import {
   AlertCircle,
+  AlertTriangle,
   CalendarOff,
   CheckCircle2,
   Info,
   Save,
   Settings2,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import {
   addBlockedDateAction,
   removeBlockedDateAction,
+  resetBookingsAction,
   updateSettingsAction,
 } from "@/app/admin/actions";
+import { getSession } from "@/lib/auth";
 import { getDashboard } from "@/lib/queries";
 import { getBlockedDates, getSettings } from "@/lib/settings";
 import {
@@ -47,7 +51,10 @@ export default async function SettingsPage({
 }) {
   const params = await searchParams;
   const saved = first(params.saved) === "1";
+  const resetDone = first(params.reset) === "1";
+  const resetCount = Number.parseInt(first(params.n), 10);
   const errorMessage = first(params.error);
+  const session = await getSession();
 
   const [settings, blockedDates, dashboard] = await Promise.all([
     getSettings(),
@@ -78,6 +85,19 @@ export default async function SettingsPage({
         <div className="flex gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Settings saved.</span>
+        </div>
+      )}
+
+      {resetDone && (
+        <div className="flex gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            All bookings were reset
+            {Number.isFinite(resetCount)
+              ? ` (${resetCount} appointment${resetCount === 1 ? "" : "s"} deleted)`
+              : ""}
+            . Students can book again.
+          </span>
         </div>
       )}
 
@@ -356,6 +376,58 @@ export default async function SettingsPage({
           students manually. The system will not move them.
         </p>
       </section>
+
+      {session?.role === "super_admin" && (
+        <section className="rounded-2xl border border-rose-200 bg-rose-50/60 p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-rose-600" />
+            <h2 className="text-sm font-semibold text-slate-900">
+              Danger zone
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-slate-700">
+            Permanently delete all appointments and reset every day&apos;s
+            queue counter. This also clears students&apos; no-show history,
+            rebooking counts, and verified status. Students, admin accounts,
+            settings, and blocked dates are kept.
+          </p>
+          <p className="mt-3 text-sm text-slate-600">
+            Appointments currently stored:{" "}
+            <strong className="text-slate-900">
+              {dashboard.totals.appointments.toLocaleString()}
+            </strong>
+          </p>
+
+          <form
+            action={resetBookingsAction}
+            className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+          >
+            <div className="flex-1">
+              <label className="label text-xs" htmlFor="resetConfirm">
+                Type <strong>RESET</strong> to confirm
+              </label>
+              <input
+                id="resetConfirm"
+                name="confirm"
+                placeholder="RESET"
+                autoComplete="off"
+                className="input"
+                required
+              />
+            </div>
+            <button type="submit" className="btn-danger">
+              <Trash2 className="h-4 w-4" />
+              Reset all bookings
+            </button>
+          </form>
+
+          <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-rose-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            This cannot be undone. Export the appointment list first if you
+            need a record.
+          </p>
+        </section>
+      )}
 
       <p className="text-center text-xs text-slate-500">
         Office schedule is fixed to Monday–Thursday. Dates are handled in

@@ -22,6 +22,7 @@ import {
   updateOwnProfile,
 } from "@/lib/admins";
 import { setAppointmentStatus } from "@/lib/queries";
+import { resetAllBookings } from "@/lib/maintenance";
 import {
   addBlockedDate,
   removeBlockedDate,
@@ -119,6 +120,45 @@ export async function setStatusAction(formData: FormData): Promise<void> {
   }
 
   redirect(redirectTo);
+}
+
+/**
+ * Deletes every appointment and resets all daily queue counters. Restricted to
+ * super admins and guarded by a typed confirmation because it cannot be undone.
+ */
+export async function resetBookingsAction(formData: FormData): Promise<void> {
+  const session = await requireSuperAdmin();
+  const confirm = String(formData.get("confirm") ?? "").trim().toUpperCase();
+
+  if (confirm !== "RESET") {
+    redirect(
+      `/admin/settings?error=${encodeURIComponent(
+        "Type RESET to confirm the reset.",
+      )}`,
+    );
+  }
+
+  let appointments = 0;
+  try {
+    const result = await resetAllBookings(session);
+    appointments = result.appointments;
+  } catch {
+    redirect(
+      `/admin/settings?error=${encodeURIComponent(
+        "Could not reset bookings. Please try again.",
+      )}`,
+    );
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/appointments");
+  revalidatePath("/admin/students");
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/audit");
+  revalidatePath("/book");
+  revalidatePath("/");
+
+  redirect(`/admin/settings?reset=1&n=${appointments}`);
 }
 
 export async function updateSettingsAction(formData: FormData): Promise<void> {

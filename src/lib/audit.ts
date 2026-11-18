@@ -37,6 +37,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "status:verified": "Verified",
   "status:no_show": "Marked as no-show",
   "status:cancelled": "Cancelled",
+  "bookings.reset": "Bookings reset",
 };
 
 export function auditActionLabel(action: string): string {
