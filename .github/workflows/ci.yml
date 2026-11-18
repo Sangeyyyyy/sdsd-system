@@ -50,5 +50,8 @@ jobs:
       - name: Bulk tests
         run: npm run test:bulk
 
+      - name: Report tests
+        run: npm run test:reports
+
       - name: Reset tests
         run: npm run test:reset

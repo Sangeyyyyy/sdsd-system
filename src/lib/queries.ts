@@ -161,6 +161,8 @@ export async function getDashboard(): Promise<DashboardData> {
 
 export type AppointmentFilter = {
   date?: string;
+  from?: string;
+  to?: string;
   query?: string;
   status?: string;
   campus?: string;
@@ -187,6 +189,14 @@ function buildAppointmentWhere(filter: AppointmentFilter): {
   if (filter.date) {
     conditions.push("a.appointment_date = ?");
     args.push(filter.date);
+  }
+  if (filter.from) {
+    conditions.push("a.appointment_date >= ?");
+    args.push(filter.from);
+  }
+  if (filter.to) {
+    conditions.push("a.appointment_date <= ?");
+    args.push(filter.to);
   }
   if (filter.status && VALID_STATUSES.has(filter.status)) {
     conditions.push("a.status = ?");

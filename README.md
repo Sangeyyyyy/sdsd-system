@@ -251,6 +251,7 @@ below its current number of bookings.
 | `npm run test:students` | Verify roster add/edit corrections |
 | `npm run test:cancel` | Verify student self-cancellation |
 | `npm run test:bulk` | Verify bulk status updates |
+| `npm run test:reports` | Verify report ranges and totals |
 | `npm run test:reset` | Verify the super-admin booking reset |
 
 `db:import -- --fresh` refuses to wipe data if appointments exist. Add
