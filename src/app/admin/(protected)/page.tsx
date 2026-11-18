@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { getDashboard } from "@/lib/queries";
 import { requireSession } from "@/lib/auth";
+import { AutoRefresh } from "@/components/auto-refresh";
 import {
   formatLongDate,
   formatShortDate,
@@ -54,8 +55,9 @@ export default async function AdminDashboardPage({
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Dashboard
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
             {formatLongDate(data.today)} · SDSD office
+            <AutoRefresh />
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertCircle, Download, Filter, Search } from "lucide-react";
 import { PrintButton } from "@/components/print-button";
 import { AppointmentsBoard } from "@/components/appointments-board";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { countAppointments, getDayStats, listAppointments } from "@/lib/queries";
 import { formatLongDate, todayISO } from "@/lib/dates";
 
@@ -62,9 +63,10 @@ export default async function AppointmentsPage({
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Appointments
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
             {formatLongDate(date)} · {stats.slotsBooked} of {stats.capacity}{" "}
             slots booked
+            <AutoRefresh />
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
