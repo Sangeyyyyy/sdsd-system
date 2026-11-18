@@ -12,6 +12,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { PrintButton } from "@/components/print-button";
+import { CancelAppointment } from "@/components/cancel-appointment";
 import { PassQr } from "@/components/pass-qr";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { StatusBadge } from "@/components/status-badge";
@@ -21,6 +22,7 @@ import {
   formatLongDate,
   formatQueue,
   formatTimestamp,
+  todayISO,
 } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,8 @@ export default async function ConfirmationPage({
   const isInactive =
     appointment.status === "no_show" || appointment.status === "cancelled";
   const isSamal = appointment.campus.toUpperCase() === "SAMAL";
+  const canCancel =
+    appointment.status === "booked" && appointment.date >= todayISO();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -248,6 +252,10 @@ export default async function ConfirmationPage({
             </div>
           </div>
         </article>
+
+        {canCancel && (
+          <CancelAppointment referenceCode={appointment.referenceCode} />
+        )}
 
         <div className="no-print mt-5 flex flex-col gap-2 sm:flex-row">
           {appointment.status === "verified" ? (

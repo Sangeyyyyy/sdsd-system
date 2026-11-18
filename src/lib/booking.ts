@@ -488,3 +488,95 @@ export async function bookAppointment(input: {
 
   return fail("error", "Something went wrong. Please try again.");
 }
+
+export type CancelResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * Lets a student cancel their own upcoming appointment from the pass page.
+ *
+ * No admin account is involved, so the audit entry is recorded against the
+ * system (`admin_id` NULL) and the day's booked counter is released for
+ * someone else.
+ */
+export async function cancelAppointmentByStudent(
+  reference: string,
+): Promise<CancelResult> {
+  const code = normalizeReferenceCode(reference);
+  if (!code) {
+    return { ok: false, message: "Enter a valid reference code." };
+  }
+
+  const db = await ensureDb();
+  const tx = await db.transaction("write");
+
+  try {
+    const result = await tx.execute({
+      sql: `SELECT id, appointment_date, status
+            FROM appointments
+            WHERE UPPER(reference_code) = ?
+            LIMIT 1`,
+      args: [code],
+    });
+
+    const row = result.rows[0];
+    if (!row) {
+      await tx.rollback();
+      return { ok: false, message: "Appointment not found." };
+    }
+
+    const appointmentId = Number(row.id);
+    const status = String(row.status) as AppointmentStatus;
+    const date = String(row.appointment_date);
+
+    if (status === "cancelled") {
+      await tx.commit();
+      return { ok: true };
+    }
+
+    if (status !== "booked") {
+      await tx.rollback();
+      return {
+        ok: false,
+        message: "Only an upcoming booked appointment can be cancelled.",
+      };
+    }
+
+    if (date < todayISO()) {
+      await tx.rollback();
+      return {
+        ok: false,
+        message: "This appointment date has already passed.",
+      };
+    }
+
+    await tx.execute({
+      sql: `UPDATE appointments
+            SET status = 'cancelled', verified_at = NULL, verified_by = NULL
+            WHERE id = ?`,
+      args: [appointmentId],
+    });
+
+    await tx.execute({
+      sql: `UPDATE day_capacity
+            SET booked = CASE WHEN booked > 0 THEN booked - 1 ELSE 0 END
+            WHERE date = ?`,
+      args: [date],
+    });
+
+    await tx.execute({
+      sql: `INSERT INTO audit_log (admin_id, action, appointment_id, details)
+            VALUES (NULL, 'status:cancelled', ?, ?)`,
+      args: [appointmentId, "booked -> cancelled by student"],
+    });
+
+    await tx.commit();
+    return { ok: true };
+  } catch (error) {
+    try {
+      await tx.rollback();
+    } catch {
+      // Transaction may already be closed after commit/rollback.
+    }
+    throw error;
+  }
+}

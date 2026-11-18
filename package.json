@@ -14,6 +14,7 @@
     "test:booking": "tsx scripts/test-booking.ts",
     "test:admin": "tsx scripts/test-admin.ts",
     "test:students": "tsx scripts/test-students.ts",
+    "test:cancel": "tsx scripts/test-cancel.ts",
     "test:reset": "tsx scripts/test-reset.ts"
   },
   "dependencies": {
