@@ -47,5 +47,8 @@ jobs:
       - name: Cancel tests
         run: npm run test:cancel
 
+      - name: Bulk tests
+        run: npm run test:bulk
+
       - name: Reset tests
         run: npm run test:reset

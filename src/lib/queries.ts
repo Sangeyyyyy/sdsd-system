@@ -360,8 +360,7 @@ export async function setAppointmentStatus(
   appointmentId: number,
   next: AppointmentStatus,
   admin: { id: number; displayName: string },
-): Promise<{ ok: boolean; message?: string }> {
-  if (!VALID_STATUSES.has(next)) {
+): Promise<{ ok: boolean; message?: string }> {  if (!VALID_STATUSES.has(next)) {
     return { ok: false, message: "Unknown status." };
   }
 
@@ -425,4 +424,34 @@ export async function setAppointmentStatus(
     }
     throw error;
   }
+}
+
+/**
+ * Applies the same status to a batch of appointments. Each appointment keeps
+ * its own transaction and audit entry, so a single stale row cannot roll back
+ * the rest of the batch.
+ */
+export async function setAppointmentsStatus(
+  ids: number[],
+  next: AppointmentStatus,
+  admin: { id: number; displayName: string },
+): Promise<{ ok: boolean; updated: number; failed: number }> {
+  if (!VALID_STATUSES.has(next)) {
+    return { ok: false, updated: 0, failed: ids.length };
+  }
+
+  const unique = [...new Set(ids)].filter(
+    (id) => Number.isInteger(id) && id > 0,
+  );
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const id of unique) {
+    const result = await setAppointmentStatus(id, next, admin);
+    if (result.ok) updated += 1;
+    else failed += 1;
+  }
+
+  return { ok: failed === 0, updated, failed };
 }

@@ -55,6 +55,8 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
   const [lastProps, setLastProps] = useState({ stats, rows });
   const [state, setState] = useState({ stats, rows });
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
   const [quickPending, setQuickPending] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [quickQueue, setQuickQueue] = useState("");
@@ -66,6 +68,7 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
   if (stats !== lastProps.stats || rows !== lastProps.rows) {
     setLastProps({ stats, rows });
     setState({ stats, rows });
+    setSelectedIds(new Set());
   }
 
   useEffect(() => {
@@ -164,8 +167,7 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
     }
   }
 
-  async function handleQuickVerify(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleQuickVerify(event: React.FormEvent) {    event.preventDefault();
     const queue = Number.parseInt(quickQueue.trim(), 10);
     if (!Number.isInteger(queue) || queue < 1 || queue > 9999) {
       showToast("error", "Enter a queue number between 1 and 9999.");
@@ -224,6 +226,113 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
     }
   }
 
+  function revertBulk(
+    previous: Map<number, AppointmentStatus>,
+    next: AppointmentStatus,
+  ) {
+    setState((s) => {
+      let nextStats = s.stats;
+      for (const status of previous.values()) {
+        nextStats = statsAfterTransition(nextStats, next, status);
+      }
+      return {
+        stats: nextStats,
+        rows: s.rows.map((row) => {
+          const before = previous.get(row.id);
+          return before ? { ...row, status: before } : row;
+        }),
+      };
+    });
+  }
+
+  function toggleRow(id: number) {
+    setSelectedIds((ids) => {
+      const next = new Set(ids);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll(checked: boolean) {
+    setSelectedIds(
+      checked ? new Set(state.rows.map((row) => row.id)) : new Set(),
+    );
+  }
+
+  async function handleBulk(next: AppointmentStatus) {
+    const targets = state.rows.filter(
+      (row) => selectedIds.has(row.id) && row.status !== next,
+    );
+
+    if (targets.length === 0) {
+      showToast("info", "The selected appointments already have that status.");
+      return;
+    }
+
+    const previous = new Map(targets.map((row) => [row.id, row.status]));
+    const targetIds = new Set(previous.keys());
+
+    setBulkPending(true);
+    setState((s) => {
+      let nextStats = s.stats;
+      for (const row of targets) {
+        nextStats = statsAfterTransition(nextStats, row.status, next);
+      }
+      return {
+        stats: nextStats,
+        rows: s.rows.map((row) =>
+          targetIds.has(row.id) ? { ...row, status: next } : row,
+        ),
+      };
+    });
+
+    try {
+      const response = await fetch("/api/admin/bulk-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: targets.map((row) => row.id),
+          status: next,
+        }),
+      });
+      const data = (await response.json()) as {
+        ok: boolean;
+        updated?: number;
+        failed?: number;
+        message?: string;
+      };
+
+      if (!response.ok || !data.ok) {
+        revertBulk(previous, next);
+        showToast(
+          "error",
+          data.message ?? "Bulk update failed. The changes were rolled back.",
+        );
+        return;
+      }
+
+      const updated = data.updated ?? targets.length;
+      setSelectedIds(new Set());
+      if (data.failed && data.failed > 0) {
+        showToast(
+          "info",
+          `${updated} updated, ${data.failed} could not be changed.`,
+        );
+      } else {
+        showToast(
+          "success",
+          `${updated} appointment${updated === 1 ? "" : "s"} updated.`,
+        );
+      }
+    } catch {
+      revertBulk(previous, next);
+      showToast("error", "Network error. The changes were rolled back.");
+    } finally {
+      setBulkPending(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Quick verify by queue number */}
@@ -268,10 +377,76 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
 
       <MiniStats stats={state.stats} />
 
+      {selectedIds.size > 0 && (
+        <div className="no-print flex flex-col gap-2 rounded-2xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-slate-800">
+            {selectedIds.size} selected
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <ActionButton
+              label="Verify"
+              tone="success"
+              disabled={bulkPending}
+              onClick={() => handleBulk("verified")}
+            />
+            <ActionButton
+              label="No-show"
+              tone="danger"
+              disabled={bulkPending}
+              onClick={() => handleBulk("no_show")}
+            />
+            <ActionButton
+              label="Cancel"
+              tone="danger"
+              disabled={bulkPending}
+              onClick={() => handleBulk("cancelled")}
+            />
+            <ActionButton
+              label="Restore"
+              tone="neutral"
+              disabled={bulkPending}
+              onClick={() => handleBulk("booked")}
+            />
+            {bulkPending && (
+              <span className="flex items-center px-1 text-slate-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkPending}
+              className="ml-1 text-xs font-semibold text-slate-500 hover:text-slate-700 disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
+              <th className="no-print w-10">
+                <input
+                  type="checkbox"
+                  aria-label="Select all appointments on this page"
+                  className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
+                  checked={
+                    state.rows.length > 0 &&
+                    selectedIds.size === state.rows.length
+                  }
+                  ref={(el) => {
+                    if (el) {
+                      el.indeterminate =
+                        selectedIds.size > 0 &&
+                        selectedIds.size < state.rows.length;
+                    }
+                  }}
+                  onChange={(event) => toggleAll(event.target.checked)}
+                />
+              </th>
               <th className="w-16">Queue</th>
               <th>Student</th>
               <th>Program</th>
@@ -286,6 +461,15 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
               const pending = pendingIds.has(row.id);
               return (
                 <tr key={row.id}>
+                  <td className="no-print">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select queue ${formatQueue(row.queueNumber)}`}
+                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
+                      checked={selectedIds.has(row.id)}
+                      onChange={() => toggleRow(row.id)}
+                    />
+                  </td>
                   <td className="font-mono text-sm font-semibold text-slate-900">
                     {formatQueue(row.queueNumber)}
                   </td>
@@ -355,7 +539,7 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
 
             {state.rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-10 text-center">
+                <td colSpan={8} className="py-10 text-center">
                   <p className="text-sm font-medium text-slate-600">
                     No appointments found.
                   </p>
