@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink, Search, Users } from "lucide-react";
+import { ExternalLink, Pencil, Search, UserPlus, Users } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { countStudents, listStudents } from "@/lib/queries";
 import { getSettings } from "@/lib/settings";
@@ -47,15 +47,21 @@ export default async function StudentsPage({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Students
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Search the first-year roster. {total.toLocaleString()} record
-          {total === 1 ? "" : "s"}
-          {query ? " matched" : " total"}.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Students
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Search the first-year roster. {total.toLocaleString()} record
+            {total === 1 ? "" : "s"}
+            {query ? " matched" : " total"}.
+          </p>
+        </div>
+        <Link href="/admin/students/new" className="btn-primary sm:w-auto">
+          <UserPlus className="h-4 w-4" />
+          Add student
+        </Link>
       </div>
 
       <form method="get" action="/admin/students" className="card p-4">
@@ -91,7 +97,7 @@ export default async function StudentsPage({
               <th>Campus</th>
               <th>Latest status</th>
               <th>Active booking</th>
-              <th className="w-28">Open</th>
+              <th className="w-40">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -148,15 +154,24 @@ export default async function StudentsPage({
                   )}
                 </td>
                 <td>
-                  <Link
-                    href={`/admin/appointments?q=${encodeURIComponent(
-                      student.studentNo,
-                    )}`}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                  >
-                    View
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
+                  <div className="flex items-center gap-3 whitespace-nowrap">
+                    <Link
+                      href={`/admin/students/${student.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit
+                    </Link>
+                    <Link
+                      href={`/admin/appointments?q=${encodeURIComponent(
+                        student.studentNo,
+                      )}`}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                    >
+                      View
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}

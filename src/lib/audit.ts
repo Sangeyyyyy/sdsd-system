@@ -37,6 +37,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "status:verified": "Verified",
   "status:no_show": "Marked as no-show",
   "status:cancelled": "Cancelled",
+  "student.created": "Student added",
+  "student.updated": "Student updated",
   "bookings.reset": "Bookings reset",
   "settings.updated": "Settings updated",
   "settings.blocked_date_added": "Date blocked",

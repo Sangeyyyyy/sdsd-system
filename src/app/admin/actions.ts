@@ -24,6 +24,7 @@ import {
 import { setAppointmentStatus } from "@/lib/queries";
 import { resetAllBookings } from "@/lib/maintenance";
 import { recordAudit } from "@/lib/audit";
+import { createStudent, updateStudent } from "@/lib/students";
 import {
   addBlockedDate,
   getSettings,
@@ -267,6 +268,66 @@ export async function removeBlockedDateAction(
   revalidatePath("/book");
 
   redirect("/admin/settings?saved=1");
+}
+
+export async function createStudentAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+
+  const result = await createStudent(
+    {
+      studentNo: String(formData.get("studentNo") ?? ""),
+      firstName: String(formData.get("firstName") ?? ""),
+      middleInitial: String(formData.get("middleInitial") ?? ""),
+      lastName: String(formData.get("lastName") ?? ""),
+      program: String(formData.get("program") ?? ""),
+      yearLevel: Number(formData.get("yearLevel") ?? 1),
+      campus: String(formData.get("campus") ?? "MAIN"),
+    },
+    session,
+  );
+
+  if (!result.ok) {
+    redirect(
+      `/admin/students/new?error=${encodeURIComponent(result.message)}`,
+    );
+  }
+
+  revalidatePath("/admin/students");
+  revalidatePath("/admin");
+  redirect(`/admin/students/${result.student.id}?saved=created`);
+}
+
+export async function updateStudentAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  const id = Number(formData.get("id"));
+
+  if (!Number.isFinite(id) || id <= 0) {
+    redirect("/admin/students?error=Invalid+student");
+  }
+
+  const result = await updateStudent(
+    id,
+    {
+      studentNo: String(formData.get("studentNo") ?? ""),
+      firstName: String(formData.get("firstName") ?? ""),
+      middleInitial: String(formData.get("middleInitial") ?? ""),
+      lastName: String(formData.get("lastName") ?? ""),
+      program: String(formData.get("program") ?? ""),
+      yearLevel: Number(formData.get("yearLevel") ?? 1),
+      campus: String(formData.get("campus") ?? "MAIN"),
+    },
+    session,
+  );
+
+  if (!result.ok) {
+    redirect(`/admin/students/${id}?error=${encodeURIComponent(result.message)}`);
+  }
+
+  revalidatePath("/admin/students");
+  revalidatePath(`/admin/students/${id}`);
+  revalidatePath("/admin/appointments");
+  revalidatePath("/admin");
+  redirect(`/admin/students/${id}?saved=updated`);
 }
 
 export type CreateAdminState = {

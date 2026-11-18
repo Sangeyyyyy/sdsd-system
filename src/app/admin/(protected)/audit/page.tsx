@@ -37,6 +37,7 @@ function actionTone(action: string): string {
   if (action === "status:booked") return "bg-indigo-100 text-indigo-700";
   if (action === "status:cancelled") return "bg-slate-100 text-slate-600";
   if (action.startsWith("admin.")) return "bg-amber-100 text-amber-800";
+  if (action.startsWith("student.")) return "bg-sky-100 text-sky-700";
   return "bg-slate-100 text-slate-600";
 }
 
