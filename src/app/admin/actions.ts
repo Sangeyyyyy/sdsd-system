@@ -23,10 +23,13 @@ import {
 } from "@/lib/admins";
 import { setAppointmentStatus } from "@/lib/queries";
 import { resetAllBookings } from "@/lib/maintenance";
+import { recordAudit } from "@/lib/audit";
 import {
   addBlockedDate,
+  getSettings,
   removeBlockedDate,
   updateSettings,
+  type AppSettings,
 } from "@/lib/settings";
 import type { AppointmentStatus } from "@/lib/booking";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -161,8 +164,36 @@ export async function resetBookingsAction(formData: FormData): Promise<void> {
   redirect(`/admin/settings?reset=1&n=${appointments}`);
 }
 
+function describeSettingsChange(
+  before: AppSettings,
+  after: AppSettings,
+): string {
+  const changes: string[] = [];
+
+  if (before.dailyLimit !== after.dailyLimit) {
+    changes.push(`daily limit ${before.dailyLimit} -> ${after.dailyLimit}`);
+  }
+  if (before.sameDayCutoffHour !== after.sameDayCutoffHour) {
+    changes.push(
+      `same-day cutoff ${before.sameDayCutoffHour}:00 -> ${after.sameDayCutoffHour}:00`,
+    );
+  }
+  if (before.maxRebooks !== after.maxRebooks) {
+    changes.push(`max rebooks ${before.maxRebooks} -> ${after.maxRebooks}`);
+  }
+  if (before.bookingOpen !== after.bookingOpen) {
+    changes.push(after.bookingOpen ? "booking opened" : "booking closed");
+  }
+  if (before.samalEnabled !== after.samalEnabled) {
+    changes.push(after.samalEnabled ? "SAMAL enabled" : "SAMAL disabled");
+  }
+
+  return changes.length > 0 ? changes.join("; ") : "No changes";
+}
+
 export async function updateSettingsAction(formData: FormData): Promise<void> {
-  await requireSession();
+  const session = await requireSuperAdmin();
+  const before = await getSettings();
 
   const dailyLimit = Number(formData.get("dailyLimit"));
   const sameDayCutoffHour = Number(formData.get("sameDayCutoffHour"));
@@ -170,13 +201,19 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
   const bookingOpen = formData.get("bookingOpen") === "on";
   const samalEnabled = formData.get("samalEnabled") === "on";
 
-  await updateSettings({
+  const after = await updateSettings({
     dailyLimit,
     sameDayCutoffHour,
     maxRebooks,
     bookingOpen,
     samalEnabled,
   });
+
+  await recordAudit(
+    session,
+    "settings.updated",
+    describeSettingsChange(before, after),
+  );
 
   revalidatePath("/admin");
   revalidatePath("/admin/settings");
@@ -187,7 +224,7 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
 }
 
 export async function addBlockedDateAction(formData: FormData): Promise<void> {
-  await requireSession();
+  const session = await requireSuperAdmin();
 
   const date = String(formData.get("date") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim();
@@ -197,6 +234,12 @@ export async function addBlockedDateAction(formData: FormData): Promise<void> {
   }
 
   await addBlockedDate(date, reason);
+  await recordAudit(
+    session,
+    "settings.blocked_date_added",
+    reason ? `${date} (${reason})` : date,
+  );
+
   revalidatePath("/admin");
   revalidatePath("/admin/settings");
   revalidatePath("/admin/appointments");
@@ -208,7 +251,7 @@ export async function addBlockedDateAction(formData: FormData): Promise<void> {
 export async function removeBlockedDateAction(
   formData: FormData,
 ): Promise<void> {
-  await requireSession();
+  const session = await requireSuperAdmin();
 
   const date = String(formData.get("date") ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -216,6 +259,8 @@ export async function removeBlockedDateAction(
   }
 
   await removeBlockedDate(date);
+  await recordAudit(session, "settings.blocked_date_removed", date);
+
   revalidatePath("/admin");
   revalidatePath("/admin/settings");
   revalidatePath("/admin/appointments");

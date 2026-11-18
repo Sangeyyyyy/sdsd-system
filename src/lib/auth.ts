@@ -17,11 +17,28 @@ export type AdminSession = {
   sessionVersion: number;
 };
 
+/**
+ * Development-only fallback so `npm run dev` works before `.env` is created.
+ * Production must always provide AUTH_SECRET: a shared hardcoded value would
+ * let anyone forge an admin session cookie.
+ */
+const DEV_FALLBACK_SECRET =
+  "sdsd-dev-only-session-secret-do-not-use-in-production";
+
 function secretKey(): Uint8Array {
-  const value =
-    process.env.AUTH_SECRET ??
-    "sdsd-dnsc-auth-session-secret-key-production-fallback-2026-secure";
-  return new TextEncoder().encode(value);
+  const value = process.env.AUTH_SECRET?.trim();
+
+  if (value) {
+    return new TextEncoder().encode(value);
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET is not set. Add a long random value (32+ characters) to the environment before signing in.",
+    );
+  }
+
+  return new TextEncoder().encode(DEV_FALLBACK_SECRET);
 }
 
 function parseRole(value: unknown): AdminRole {

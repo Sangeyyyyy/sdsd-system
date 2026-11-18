@@ -16,7 +16,7 @@ import {
   resetBookingsAction,
   updateSettingsAction,
 } from "@/app/admin/actions";
-import { getSession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { getDashboard } from "@/lib/queries";
 import { getBlockedDates, getSettings } from "@/lib/settings";
 import {
@@ -54,7 +54,8 @@ export default async function SettingsPage({
   const resetDone = first(params.reset) === "1";
   const resetCount = Number.parseInt(first(params.n), 10);
   const errorMessage = first(params.error);
-  const session = await getSession();
+  const session = await requireSession();
+  const canEdit = session.role === "super_admin";
 
   const [settings, blockedDates, dashboard] = await Promise.all([
     getSettings(),
@@ -108,6 +109,16 @@ export default async function SettingsPage({
         </div>
       )}
 
+      {!canEdit && (
+        <div className="flex gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+          <span>
+            Settings are read-only for your account. Only a super admin can
+            change booking controls or blocked dates.
+          </span>
+        </div>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
         <form action={updateSettingsAction} className="card p-5 sm:p-6">
           <div className="flex items-center gap-2">
@@ -123,6 +134,7 @@ export default async function SettingsPage({
               defaultChecked={settings.bookingOpen}
               title="Accept new bookings"
               description="Turn this off to pause the public booking page temporarily. Existing appointments are not affected."
+              disabled={!canEdit}
             />
 
             <Toggle
@@ -131,6 +143,7 @@ export default async function SettingsPage({
               title="Include SAMAL campus"
               description="Off by default. Enable only after the supervisor approves SAMAL students for in-person verification."
               warning
+              disabled={!canEdit}
             />
 
             <div className="grid gap-4 sm:grid-cols-3">
@@ -146,6 +159,7 @@ export default async function SettingsPage({
                   max={1000}
                   defaultValue={settings.dailyLimit}
                   className="input"
+                  disabled={!canEdit}
                   required
                 />
                 <p className="mt-1 text-xs text-slate-500">
@@ -162,6 +176,7 @@ export default async function SettingsPage({
                   name="sameDayCutoffHour"
                   defaultValue={settings.sameDayCutoffHour}
                   className="input"
+                  disabled={!canEdit}
                 >
                   {Array.from({ length: 24 }, (_, hour) => (
                     <option key={hour} value={hour}>
@@ -187,6 +202,7 @@ export default async function SettingsPage({
                   max={10}
                   defaultValue={settings.maxRebooks}
                   className="input"
+                  disabled={!canEdit}
                   required
                 />
                 <p className="mt-1 text-xs text-slate-500">
@@ -196,12 +212,14 @@ export default async function SettingsPage({
             </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-end border-t border-slate-100 pt-4">
-            <button type="submit" className="btn-primary">
-              <Save className="h-4 w-4" />
-              Save settings
-            </button>
-          </div>
+          {canEdit && (
+            <div className="mt-6 flex items-center justify-end border-t border-slate-100 pt-4">
+              <button type="submit" className="btn-primary">
+                <Save className="h-4 w-4" />
+                Save settings
+              </button>
+            </div>
+          )}
         </form>
 
         <div className="space-y-4">
@@ -288,40 +306,42 @@ export default async function SettingsPage({
           automatically.
         </p>
 
-        <form
-          action={addBlockedDateAction}
-          className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.6fr_auto]"
-        >
-          <div>
-            <label className="label text-xs" htmlFor="blockedDate">
-              Date
-            </label>
-            <input
-              id="blockedDate"
-              name="date"
-              type="date"
-              min={todayISO()}
-              className="input"
-              required
-            />
-          </div>
-          <div>
-            <label className="label text-xs" htmlFor="blockedReason">
-              Reason (optional)
-            </label>
-            <input
-              id="blockedReason"
-              name="reason"
-              placeholder="Holiday, office event, etc."
-              className="input"
-            />
-          </div>
-          <div className="flex items-end">
-            <button type="submit" className="btn-primary w-full sm:w-auto">
-              Block date
-            </button>
-          </div>
-        </form>
+        {canEdit && (
+          <form
+            action={addBlockedDateAction}
+            className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.6fr_auto]"
+          >
+            <div>
+              <label className="label text-xs" htmlFor="blockedDate">
+                Date
+              </label>
+              <input
+                id="blockedDate"
+                name="date"
+                type="date"
+                min={todayISO()}
+                className="input"
+                required
+              />
+            </div>
+            <div>
+              <label className="label text-xs" htmlFor="blockedReason">
+                Reason (optional)
+              </label>
+              <input
+                id="blockedReason"
+                name="reason"
+                placeholder="Holiday, office event, etc."
+                className="input"
+              />
+            </div>
+            <div className="flex items-end">
+              <button type="submit" className="btn-primary w-full sm:w-auto">
+                Block date
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
           <table className="data-table">
@@ -347,15 +367,19 @@ export default async function SettingsPage({
                     {item.reason || "—"}
                   </td>
                   <td>
-                    <form action={removeBlockedDateAction}>
-                      <input type="hidden" name="date" value={item.date} />
-                      <button
-                        type="submit"
-                        className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
-                      >
-                        Unblock
-                      </button>
-                    </form>
+                    {canEdit ? (
+                      <form action={removeBlockedDateAction}>
+                        <input type="hidden" name="date" value={item.date} />
+                        <button
+                          type="submit"
+                          className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
+                        >
+                          Unblock
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -377,7 +401,7 @@ export default async function SettingsPage({
         </p>
       </section>
 
-      {session?.role === "super_admin" && (
+      {canEdit && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50/60 p-5 sm:p-6">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-rose-600" />
@@ -443,25 +467,30 @@ function Toggle({
   title,
   description,
   warning = false,
+  disabled = false,
 }: {
   name: string;
   defaultChecked: boolean;
   title: string;
   description: string;
   warning?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <label
-      className={
+      className={`flex gap-3 rounded-xl border p-3.5 ${
+        disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+      } ${
         warning
-          ? "flex cursor-pointer gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3.5"
-          : "flex cursor-pointer gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5"
-      }
+          ? "border-amber-200 bg-amber-50/60"
+          : "border-slate-200 bg-slate-50/60"
+      }`}
     >
       <input
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
+        disabled={disabled}
         className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
       />
       <span>

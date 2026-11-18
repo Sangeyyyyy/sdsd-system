@@ -38,10 +38,29 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "status:no_show": "Marked as no-show",
   "status:cancelled": "Cancelled",
   "bookings.reset": "Bookings reset",
+  "settings.updated": "Settings updated",
+  "settings.blocked_date_added": "Date blocked",
+  "settings.blocked_date_removed": "Date unblocked",
 };
 
 export function auditActionLabel(action: string): string {
   return AUDIT_ACTION_LABELS[action] ?? action;
+}
+
+/**
+ * Appends an audit entry for actions that are not tied to a single
+ * appointment (settings, blocked dates, maintenance).
+ */
+export async function recordAudit(
+  actor: { id: number; displayName: string },
+  action: string,
+  details: string,
+): Promise<void> {
+  const db = await ensureDb();
+  await db.execute({
+    sql: "INSERT INTO audit_log (admin_id, action, appointment_id, details) VALUES (?, ?, NULL, ?)",
+    args: [actor.id, action, details],
+  });
 }
 
 function buildWhere(filters: AuditFilters): {

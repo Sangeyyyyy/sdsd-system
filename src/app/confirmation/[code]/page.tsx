@@ -12,9 +12,11 @@ import {
   Ticket,
 } from "lucide-react";
 import { PrintButton } from "@/components/print-button";
+import { PassQr } from "@/components/pass-qr";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { StatusBadge } from "@/components/status-badge";
 import { getAppointmentByReference } from "@/lib/booking";
+import { absoluteUrl } from "@/lib/site";
 import {
   formatLongDate,
   formatQueue,
@@ -223,6 +225,17 @@ export default async function ConfirmationPage({
                   </p>
                 </div>
               )}
+            </div>
+
+            <div className="mt-7 flex flex-col items-center gap-2 border-t border-slate-100 pt-6">
+              <PassQr
+                value={absoluteUrl(
+                  `/confirmation/${encodeURIComponent(appointment.referenceCode)}`,
+                )}
+              />
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Scan to open this pass
+              </p>
             </div>
 
             <div className="mt-7 rounded-xl bg-slate-50 px-4 py-3.5">

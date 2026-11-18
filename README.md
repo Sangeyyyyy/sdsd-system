@@ -148,7 +148,7 @@ env passwords and makes admin 1 a super admin again.
 |---|---|
 | `DATABASE_URL` | `file:data/app.db` locally, or `libsql://...` for Turso |
 | `DATABASE_AUTH_TOKEN` | Turso token (empty for local files) |
-| `AUTH_SECRET` | Long random string used to sign admin session cookies |
+| `AUTH_SECRET` | Long random string used to sign admin session cookies. **Required in production** — the app refuses to sign or verify sessions when it is missing |
 | `ADMIN1_*` / `ADMIN2_*` | Bootstrap the first two accounts (`ADMIN1` becomes super admin) |
 | `NEXT_PUBLIC_SITE_NAME` | Optional display name |
 | `NEXT_PUBLIC_SITE_URL` | Public origin used for canonical links, `sitemap.xml`, and link previews. Leave unset on Vercel to use the project's production domain |
@@ -248,6 +248,7 @@ below its current number of bookings.
 | `npm run db:seed -- --reset-passwords` | Restore the env passwords and super admin role |
 | `npm run test:booking` | Run the end-to-end booking test |
 | `npm run test:admin` | Run the account, role, and audit tests |
+| `npm run test:reset` | Verify the super-admin booking reset |
 
 `db:import -- --fresh` refuses to wipe data if appointments exist. Add
 `--force` only when you intentionally want to reset everything.
