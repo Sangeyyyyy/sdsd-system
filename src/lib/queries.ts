@@ -115,9 +115,9 @@ export async function getDashboard(): Promise<DashboardData> {
   const [totalsResult, upcomingResult, todayStats] = await Promise.all([
     db.execute({
       sql: `SELECT
-        (SELECT COUNT(*) FROM students WHERE school_year = ?) AS students,
-        (SELECT COUNT(*) FROM students WHERE campus = 'MAIN' AND school_year = ?) AS main,
-        (SELECT COUNT(*) FROM students WHERE campus = 'SAMAL' AND school_year = ?) AS samal,
+        (SELECT COUNT(*) FROM students WHERE school_year = ? AND is_active = 1) AS students,
+        (SELECT COUNT(*) FROM students WHERE campus = 'MAIN' AND school_year = ? AND is_active = 1) AS main,
+        (SELECT COUNT(*) FROM students WHERE campus = 'SAMAL' AND school_year = ? AND is_active = 1) AS samal,
         (SELECT COUNT(*) FROM appointments) AS appointments,
         (SELECT COUNT(*) FROM appointments WHERE status = 'verified') AS verified,
         (SELECT COUNT(*) FROM appointments WHERE status = 'no_show') AS no_show`,
@@ -293,15 +293,12 @@ export async function listStudents(
     args.push(`%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`);
   }
 
-  const yearFilter =
-    schoolYear === "all"
-      ? null
-      : schoolYear === "active"
-        ? (await getSettings()).activeSchoolYear
-        : schoolYear;
-  if (yearFilter) {
+  if (schoolYear === "active") {
+    conditions.push("s.school_year = ?", "s.is_active = 1");
+    args.push((await getSettings()).activeSchoolYear);
+  } else if (schoolYear !== "all") {
     conditions.push("s.school_year = ?");
-    args.push(yearFilter);
+    args.push(schoolYear);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -361,15 +358,12 @@ export async function countStudents(
     args.push(`%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`);
   }
 
-  const yearFilter =
-    schoolYear === "all"
-      ? null
-      : schoolYear === "active"
-        ? (await getSettings()).activeSchoolYear
-        : schoolYear;
-  if (yearFilter) {
+  if (schoolYear === "active") {
+    conditions.push("school_year = ?", "is_active = 1");
+    args.push((await getSettings()).activeSchoolYear);
+  } else if (schoolYear !== "all") {
     conditions.push("school_year = ?");
-    args.push(yearFilter);
+    args.push(schoolYear);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";

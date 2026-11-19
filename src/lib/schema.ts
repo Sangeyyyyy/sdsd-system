@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS students (
   year_level INTEGER NOT NULL DEFAULT 1,
   campus TEXT NOT NULL DEFAULT 'MAIN',
   school_year TEXT NOT NULL DEFAULT '2026-2027',
+  is_active INTEGER NOT NULL DEFAULT 1,
   match_first TEXT NOT NULL,
   match_last TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))

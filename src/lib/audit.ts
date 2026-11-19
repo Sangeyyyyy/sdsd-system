@@ -40,6 +40,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "student.created": "Student added",
   "student.updated": "Student updated",
   "bookings.reset": "Bookings reset",
+  "roster.imported": "Roster imported",
   "settings.updated": "Settings updated",
   "settings.blocked_date_added": "Date blocked",
   "settings.blocked_date_removed": "Date unblocked",

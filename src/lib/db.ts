@@ -97,6 +97,7 @@ async function migrateAdminAccounts(db: Client): Promise<void> {
  */
 const STUDENT_COLUMNS: Array<[string, string]> = [
   ["school_year", "TEXT NOT NULL DEFAULT '2026-2027'"],
+  ["is_active", "INTEGER NOT NULL DEFAULT 1"],
 ];
 
 async function migrateStudents(db: Client): Promise<void> {

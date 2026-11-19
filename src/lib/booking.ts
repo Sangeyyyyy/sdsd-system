@@ -98,7 +98,7 @@ export async function findStudentByCredentials(
   const settings = await getSettings();
   const result = await db.execute({
     sql: `SELECT * FROM students
-          WHERE student_no = ? AND match_last = ? AND school_year = ?
+          WHERE student_no = ? AND match_last = ? AND school_year = ? AND is_active = 1
           LIMIT 1`,
     args: [no, last, settings.activeSchoolYear],
   });
