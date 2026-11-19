@@ -68,7 +68,13 @@ export function AppointmentsBoard({ date, stats, rows }: BoardProps) {
   if (stats !== lastProps.stats || rows !== lastProps.rows) {
     setLastProps({ stats, rows });
     setState({ stats, rows });
-    setSelectedIds(new Set());
+    // Keep a selection across auto-refreshes, but drop ids that are no longer
+    // on this page after a filter or pagination change.
+    const visibleIds = new Set(rows.map((row) => row.id));
+    setSelectedIds((ids) => {
+      const kept = [...ids].filter((id) => visibleIds.has(id));
+      return kept.length === ids.size ? ids : new Set(kept);
+    });
   }
 
   useEffect(() => {
