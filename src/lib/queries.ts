@@ -113,13 +113,20 @@ export async function getDashboard(): Promise<DashboardData> {
   const today = todayISO();
 
   const [totalsResult, upcomingResult, todayStats] = await Promise.all([
-    db.execute(`SELECT
-        (SELECT COUNT(*) FROM students) AS students,
-        (SELECT COUNT(*) FROM students WHERE campus = 'MAIN') AS main,
-        (SELECT COUNT(*) FROM students WHERE campus = 'SAMAL') AS samal,
+    db.execute({
+      sql: `SELECT
+        (SELECT COUNT(*) FROM students WHERE school_year = ?) AS students,
+        (SELECT COUNT(*) FROM students WHERE campus = 'MAIN' AND school_year = ?) AS main,
+        (SELECT COUNT(*) FROM students WHERE campus = 'SAMAL' AND school_year = ?) AS samal,
         (SELECT COUNT(*) FROM appointments) AS appointments,
         (SELECT COUNT(*) FROM appointments WHERE status = 'verified') AS verified,
-        (SELECT COUNT(*) FROM appointments WHERE status = 'no_show') AS no_show`),
+        (SELECT COUNT(*) FROM appointments WHERE status = 'no_show') AS no_show`,
+      args: [
+        settings.activeSchoolYear,
+        settings.activeSchoolYear,
+        settings.activeSchoolYear,
+      ],
+    }),
     db.execute({
       sql: `SELECT c.date, c.capacity, c.booked,
               (SELECT COUNT(*) FROM appointments a WHERE a.appointment_date = c.date AND a.status = 'verified') AS verified,
@@ -272,15 +279,32 @@ export async function listStudents(
   query: string,
   limit = 25,
   offset = 0,
+  schoolYear = "active",
 ): Promise<StudentListItem[]> {
   const db = await ensureDb();
   const trimmed = query.trim();
-  const where = trimmed
-    ? "WHERE s.student_no LIKE ? OR s.full_name LIKE ? OR s.program LIKE ?"
-    : "";
-  const args: Array<string | number> = trimmed
-    ? [`%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`]
-    : [];
+  const conditions: string[] = [];
+  const args: Array<string | number> = [];
+
+  if (trimmed) {
+    conditions.push(
+      "(s.student_no LIKE ? OR s.full_name LIKE ? OR s.program LIKE ?)",
+    );
+    args.push(`%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`);
+  }
+
+  const yearFilter =
+    schoolYear === "all"
+      ? null
+      : schoolYear === "active"
+        ? (await getSettings()).activeSchoolYear
+        : schoolYear;
+  if (yearFilter) {
+    conditions.push("s.school_year = ?");
+    args.push(yearFilter);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const result = await db.execute({
     sql: `SELECT s.*,
@@ -306,6 +330,7 @@ export async function listStudents(
     program: String(row.program),
     yearLevel: Number(row.year_level ?? 1),
     campus: String(row.campus ?? "MAIN"),
+    schoolYear: String(row.school_year ?? ""),
     matchFirst: String(row.match_first),
     matchLast: String(row.match_last),
     lastStatus: row.last_status
@@ -320,20 +345,48 @@ export async function listStudents(
   }));
 }
 
-export async function countStudents(query: string): Promise<number> {
+export async function countStudents(
+  query: string,
+  schoolYear = "active",
+): Promise<number> {
   const db = await ensureDb();
   const trimmed = query.trim();
-  const where = trimmed
-    ? "WHERE student_no LIKE ? OR full_name LIKE ? OR program LIKE ?"
-    : "";
-  const args: Array<string | number> = trimmed
-    ? [`%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`]
-    : [];
+  const conditions: string[] = [];
+  const args: Array<string | number> = [];
+
+  if (trimmed) {
+    conditions.push(
+      "(student_no LIKE ? OR full_name LIKE ? OR program LIKE ?)",
+    );
+    args.push(`%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`);
+  }
+
+  const yearFilter =
+    schoolYear === "all"
+      ? null
+      : schoolYear === "active"
+        ? (await getSettings()).activeSchoolYear
+        : schoolYear;
+  if (yearFilter) {
+    conditions.push("school_year = ?");
+    args.push(yearFilter);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const result = await db.execute({
     sql: `SELECT COUNT(*) AS n FROM students ${where}`,
     args,
   });
   return Number(result.rows[0]?.n ?? 0);
+}
+
+/** Every school year present on the roster, newest first. */
+export async function listStudentYears(): Promise<string[]> {
+  const db = await ensureDb();
+  const result = await db.execute(
+    "SELECT DISTINCT school_year FROM students WHERE school_year <> '' ORDER BY school_year DESC",
+  );
+  return result.rows.map((row) => String(row.school_year));
 }
 
 async function adjustBooked(

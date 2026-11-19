@@ -44,6 +44,9 @@ jobs:
       - name: Students tests
         run: npm run test:students
 
+      - name: School-year tests
+        run: npm run test:year
+
       - name: Cancel tests
         run: npm run test:cancel
 

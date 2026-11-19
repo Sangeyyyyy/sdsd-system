@@ -228,6 +228,12 @@ export default async function SettingsPage({
               Capacity snapshot
             </h2>
             <dl className="mt-3 space-y-2.5 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-slate-500">Active school year</dt>
+                <dd className="font-semibold text-slate-900">
+                  {settings.activeSchoolYear}
+                </dd>
+              </div>
               <SummaryRow label="Roster total" value={dashboard.totals.students} />
               <SummaryRow label="Main campus" value={dashboard.totals.main} />
               <SummaryRow label="SAMAL campus" value={dashboard.totals.samal} />

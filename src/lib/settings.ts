@@ -1,6 +1,7 @@
 import type { Client } from "@libsql/client";
 import { ensureDb } from "./db";
 import { addDays, isOfficeDay, todayISO } from "./dates";
+import { DEFAULT_SCHOOL_YEAR, normalizeSchoolYear } from "./school-year";
 
 /**
  * Key/value application settings plus day-capacity management.
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   same_day_cutoff_hour: "15",
   max_rebooks: "3",
   booking_open: "true",
+  active_school_year: DEFAULT_SCHOOL_YEAR,
 } as const;
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;
@@ -26,6 +28,7 @@ export type AppSettings = {
   sameDayCutoffHour: number;
   maxRebooks: number;
   bookingOpen: boolean;
+  activeSchoolYear: string;
 };
 
 function clampInt(
@@ -62,6 +65,9 @@ export async function getSettings(): Promise<AppSettings> {
     sameDayCutoffHour: clampInt(map.get("same_day_cutoff_hour"), 0, 23, 15),
     maxRebooks: clampInt(map.get("max_rebooks"), 0, 10, 3),
     bookingOpen: (map.get("booking_open") ?? "true") === "true",
+    activeSchoolYear:
+      normalizeSchoolYear(map.get("active_school_year")) ??
+      DEFAULT_SCHOOL_YEAR,
   };
 }
 
@@ -71,6 +77,7 @@ export async function updateSettings(patch: {
   sameDayCutoffHour?: number;
   maxRebooks?: number;
   bookingOpen?: boolean;
+  activeSchoolYear?: string;
 }): Promise<AppSettings> {
   const db = await ensureDb();
   const entries: Array<[SettingKey, string]> = [];
@@ -92,6 +99,10 @@ export async function updateSettings(patch: {
   }
   if (patch.bookingOpen !== undefined) {
     entries.push(["booking_open", patch.bookingOpen ? "true" : "false"]);
+  }
+  if (patch.activeSchoolYear !== undefined) {
+    const year = normalizeSchoolYear(patch.activeSchoolYear);
+    if (year) entries.push(["active_school_year", year]);
   }
 
   if (entries.length > 0) {

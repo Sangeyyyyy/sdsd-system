@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS students (
   program TEXT NOT NULL,
   year_level INTEGER NOT NULL DEFAULT 1,
   campus TEXT NOT NULL DEFAULT 'MAIN',
+  school_year TEXT NOT NULL DEFAULT '2026-2027',
   match_first TEXT NOT NULL,
   match_last TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -84,6 +85,20 @@ CREATE TABLE IF NOT EXISTS audit_log (
   action TEXT NOT NULL,
   appointment_id INTEGER,
   details TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS roster_imports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  school_year TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  admin_id INTEGER,
+  total_rows INTEGER NOT NULL DEFAULT 0,
+  imported INTEGER NOT NULL DEFAULT 0,
+  archived INTEGER NOT NULL DEFAULT 0,
+  deleted INTEGER NOT NULL DEFAULT 0,
+  cancelled_bookings INTEGER NOT NULL DEFAULT 0,
+  skipped INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;

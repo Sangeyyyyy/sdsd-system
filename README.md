@@ -29,6 +29,18 @@ The importer excludes the `INCOMPLETE`, `Sheet1`, `1 (2)`, and `BEHIND BARS`
 sheets and only imports first-year students. The SAMAL campus is an
 **off-by-default toggle** until the supervisor approves it.
 
+### School years
+
+Every student belongs to one school year, such as `2026-2027`. Only students
+in the year stored in **Settings → Active school year** can look up or book an
+appointment. Student IDs carry the start year (`2026-00001`), and the prefix
+must match the student's school year.
+
+Previous-year students stay in the database for history and reports. The
+Students page has a school-year filter, including an **All school years**
+view. Editing a student never moves them to another year; only a roster import
+does that.
+
 ## Features
 
 ### Student side
@@ -249,6 +261,7 @@ below its current number of bookings.
 | `npm run test:booking` | Run the end-to-end booking test |
 | `npm run test:admin` | Run the account, role, and audit tests |
 | `npm run test:students` | Verify roster add/edit corrections |
+| `npm run test:year` | Verify active school-year gating and history |
 | `npm run test:cancel` | Verify student self-cancellation |
 | `npm run test:bulk` | Verify bulk status updates |
 | `npm run test:reports` | Verify report ranges and totals |

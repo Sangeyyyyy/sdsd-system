@@ -56,8 +56,13 @@ export async function ensureDb(): Promise<Client> {
     globalForDb.__sdsdDbReady = (async () => {
       await db.executeMultiple(SCHEMA_SQL);
       await migrateAdminAccounts(db);
+      await migrateStudents(db);
       await ensureBootstrapSuperAdmin(db);
-    })();
+    })().catch((error) => {
+      // Do not cache a failed setup: a later request can retry cleanly.
+      globalForDb.__sdsdDbReady = undefined;
+      throw error;
+    });
   }
   await globalForDb.__sdsdDbReady;
   return db;
@@ -84,6 +89,30 @@ async function migrateAdminAccounts(db: Client): Promise<void> {
     if (existing.has(name)) continue;
     await db.execute(`ALTER TABLE admins ADD COLUMN ${name} ${definition}`);
   }
+}
+
+/**
+ * Columns added to `students` after the first release. Existing rosters are
+ * assigned the current school year so they keep working after the upgrade.
+ */
+const STUDENT_COLUMNS: Array<[string, string]> = [
+  ["school_year", "TEXT NOT NULL DEFAULT '2026-2027'"],
+];
+
+async function migrateStudents(db: Client): Promise<void> {
+  const info = await db.execute("PRAGMA table_info(students)");
+  const existing = new Set(info.rows.map((row) => String(row.name)));
+
+  for (const [name, definition] of STUDENT_COLUMNS) {
+    if (existing.has(name)) continue;
+    await db.execute(`ALTER TABLE students ADD COLUMN ${name} ${definition}`);
+  }
+
+  // Created here rather than in SCHEMA_SQL: on an older database the column
+  // does not exist until the ALTER above runs.
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year, campus)",
+  );
 }
 
 /**

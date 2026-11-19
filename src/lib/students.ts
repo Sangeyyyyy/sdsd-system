@@ -9,6 +9,11 @@ import {
   normalizeStudentNo,
   titleCase,
 } from "./names";
+import { getSettings } from "./settings";
+import {
+  normalizeSchoolYear,
+  studentNoMatchesYear,
+} from "./school-year";
 
 /**
  * Manual roster corrections.
@@ -27,6 +32,7 @@ export type StudentInput = {
   program: string;
   yearLevel?: number;
   campus: string;
+  schoolYear?: string;
 };
 
 export type StudentResult =
@@ -46,6 +52,7 @@ function mapStudent(row: Row): StudentRecord {
     program: String(row.program),
     yearLevel: Number(row.year_level ?? 1),
     campus: String(row.campus ?? "MAIN"),
+    schoolYear: String(row.school_year ?? ""),
     matchFirst: String(row.match_first),
     matchLast: String(row.match_last),
   };
@@ -124,6 +131,17 @@ export async function createStudent(
   if (error) return { ok: false, message: error };
 
   const value = clean(input);
+  const settings = await getSettings();
+  const schoolYear =
+    normalizeSchoolYear(input.schoolYear) ?? settings.activeSchoolYear;
+
+  if (!studentNoMatchesYear(value.studentNo, schoolYear)) {
+    return {
+      ok: false,
+      message: `Student ID must start with ${schoolYear.slice(0, 4)} for school year ${schoolYear}.`,
+    };
+  }
+
   const db = await ensureDb();
 
   const duplicate = await db.execute({
@@ -139,8 +157,8 @@ export async function createStudent(
 
   const inserted = await db.execute({
     sql: `INSERT INTO students
-            (student_no, first_name, middle_initial, last_name, full_name, program, year_level, campus, match_first, match_last)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (student_no, first_name, middle_initial, last_name, full_name, program, year_level, campus, school_year, match_first, match_last)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           RETURNING *`,
     args: [
       value.studentNo,
@@ -151,6 +169,7 @@ export async function createStudent(
       value.program,
       value.yearLevel,
       value.campus,
+      schoolYear,
       normalizeFirstName(value.firstName),
       normalizeLastName(value.lastName),
     ],
@@ -159,7 +178,7 @@ export async function createStudent(
   await recordAudit(
     actor,
     "student.created",
-    `${value.studentNo} ${value.fullName} (${value.campus})`,
+    `${value.studentNo} ${value.fullName} (${value.campus}, ${schoolYear})`,
   );
 
   return { ok: true, student: mapStudent(inserted.rows[0]) };
@@ -183,6 +202,21 @@ export async function updateStudent(
   const current = existing.rows[0];
   if (!current) {
     return { ok: false, message: "Student not found." };
+  }
+
+  const currentYear = String(current.school_year ?? "");
+  const requestedYear = normalizeSchoolYear(input.schoolYear);
+  if (requestedYear && requestedYear !== currentYear) {
+    return {
+      ok: false,
+      message: "School year can only be changed by importing a new roster.",
+    };
+  }
+  if (!studentNoMatchesYear(value.studentNo, currentYear)) {
+    return {
+      ok: false,
+      message: `Student ID must start with ${currentYear.slice(0, 4)} for school year ${currentYear}.`,
+    };
   }
 
   if (value.studentNo !== String(current.student_no)) {

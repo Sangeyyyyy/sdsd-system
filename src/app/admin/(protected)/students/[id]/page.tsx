@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth";
 import { getStudentState } from "@/lib/booking";
 import { getStudentById } from "@/lib/students";
+import { getSettings } from "@/lib/settings";
 import { formatQueue, formatShortDate, formatTimestamp } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,8 @@ export default async function EditStudentPage({
   const errorMessage = first(search.error);
   const state = await getStudentState(student.id);
   const recent = state.appointments.slice(0, 6);
+  const settings = await getSettings();
+  const archived = student.schoolYear !== settings.activeSchoolYear;
 
   return (
     <div className="space-y-5">
@@ -67,9 +70,20 @@ export default async function EditStudentPage({
         </h1>
         <p className="mt-1 text-sm text-slate-600">
           {student.studentNo} · {student.program} ·{" "}
-          {student.campus === "SAMAL" ? "SAMAL campus" : "Main campus"}
+          {student.campus === "SAMAL" ? "SAMAL campus" : "Main campus"} · SY{" "}
+          {student.schoolYear || "unknown"}
         </p>
       </div>
+
+      {archived && (
+        <div className="flex gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <History className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            This student belongs to school year {student.schoolYear} and cannot
+            book new appointments. Their history is kept for reference.
+          </span>
+        </div>
+      )}
 
       {saved && (
         <div className="flex gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">

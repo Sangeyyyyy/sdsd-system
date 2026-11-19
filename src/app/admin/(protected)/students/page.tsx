@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink, Pencil, Search, UserPlus, Users } from "lucide-react";
+import {
+  ExternalLink,
+  History,
+  Pencil,
+  Search,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
-import { countStudents, listStudents } from "@/lib/queries";
+import { countStudents, listStudents, listStudentYears } from "@/lib/queries";
 import { getSettings } from "@/lib/settings";
+import { normalizeSchoolYear } from "@/lib/school-year";
 import { formatQueue, formatShortDate } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -26,20 +34,37 @@ export default async function StudentsPage({
 }) {
   const params = await searchParams;
   const query = first(params.q);
+  const yearParam = first(params.year);
   const page = Math.max(1, Number.parseInt(first(params.page) || "1", 10) || 1);
   const pageSize = 50;
   const offset = (page - 1) * pageSize;
 
-  const [students, total, settings] = await Promise.all([
-    listStudents(query, pageSize, offset),
-    countStudents(query),
+  const [settings, years] = await Promise.all([
     getSettings(),
+    listStudentYears(),
+  ]);
+
+  const scope =
+    yearParam === "all" || normalizeSchoolYear(yearParam)
+      ? yearParam
+      : "active";
+  const viewingActive = scope === "active";
+  const viewingYear = viewingActive
+    ? settings.activeSchoolYear
+    : scope === "all"
+      ? "all school years"
+      : scope;
+
+  const [students, total] = await Promise.all([
+    listStudents(query, pageSize, offset, scope),
+    countStudents(query, scope),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const pageHref = (nextPage: number) => {
     const search = new URLSearchParams();
     if (query) search.set("q", query);
+    if (scope !== "active") search.set("year", scope);
     if (nextPage > 1) search.set("page", String(nextPage));
     const suffix = search.toString();
     return `/admin/students${suffix ? `?${suffix}` : ""}`;
@@ -53,8 +78,9 @@ export default async function StudentsPage({
             Students
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Search the first-year roster. {total.toLocaleString()} record
-            {total === 1 ? "" : "s"}
+            {viewingActive ? "Active roster" : "Roster history"} for{" "}
+            <span className="font-medium text-slate-800">{viewingYear}</span>.{" "}
+            {total.toLocaleString()} record{total === 1 ? "" : "s"}
             {query ? " matched" : " total"}.
           </p>
         </div>
@@ -63,6 +89,16 @@ export default async function StudentsPage({
           Add student
         </Link>
       </div>
+
+      {!viewingActive && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <History className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            You are viewing an archived roster. These records are kept for
+            history and cannot book new appointments.
+          </p>
+        </div>
+      )}
 
       <form method="get" action="/admin/students" className="card p-4">
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -75,11 +111,27 @@ export default async function StudentsPage({
               className="input pl-9"
             />
           </div>
+          <select
+            name="year"
+            defaultValue={scope}
+            className="input sm:w-48"
+            aria-label="School year"
+          >
+            <option value="active">Active ({settings.activeSchoolYear})</option>
+            {years
+              .filter((year) => year !== settings.activeSchoolYear)
+              .map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            <option value="all">All school years</option>
+          </select>
           <button type="submit" className="btn-primary sm:w-40">
             <Search className="h-4 w-4" />
             Search
           </button>
-          {query && (
+          {(query || scope !== "active") && (
             <Link href="/admin/students" className="btn-ghost sm:w-auto">
               Clear
             </Link>
@@ -95,6 +147,7 @@ export default async function StudentsPage({
               <th>Student ID</th>
               <th>Program</th>
               <th>Campus</th>
+              {!viewingActive && <th>School year</th>}
               <th>Latest status</th>
               <th>Active booking</th>
               <th className="w-40">Actions</th>
@@ -130,6 +183,11 @@ export default async function StudentsPage({
                     {student.campus === "SAMAL" ? "SAMAL" : "Main"}
                   </span>
                 </td>
+                {!viewingActive && (
+                  <td className="whitespace-nowrap text-xs text-slate-600">
+                    {student.schoolYear || "—"}
+                  </td>
+                )}
                 <td>
                   {student.lastStatus ? (
                     <StatusBadge status={student.lastStatus} />
@@ -178,7 +236,7 @@ export default async function StudentsPage({
 
             {students.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-12 text-center">
+                <td colSpan={viewingActive ? 7 : 8} className="py-12 text-center">
                   <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
                     <Users className="h-5 w-5" />
                   </span>

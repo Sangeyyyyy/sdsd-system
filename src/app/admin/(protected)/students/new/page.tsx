@@ -4,6 +4,7 @@ import { AlertCircle, ArrowLeft, Info, UserPlus } from "lucide-react";
 import { createStudentAction } from "@/app/admin/actions";
 import { StudentForm } from "@/components/student-form";
 import { requireSession } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function NewStudentPage({
   await requireSession();
   const params = await searchParams;
   const errorMessage = first(params.error);
+  const settings = await getSettings();
 
   return (
     <div className="space-y-5">
@@ -44,6 +46,10 @@ export default async function NewStudentPage({
         <p className="mt-1 text-sm text-slate-600">
           Add someone missing from the imported roster, or correct a record that
           was typed incorrectly.
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          School year {settings.activeSchoolYear}. Student IDs must start with{" "}
+          {settings.activeSchoolYear.slice(0, 4)}.
         </p>
       </div>
 

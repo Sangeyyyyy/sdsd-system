@@ -17,6 +17,7 @@
     "test:cancel": "tsx scripts/test-cancel.ts",
     "test:bulk": "tsx scripts/test-bulk.ts",
     "test:reports": "tsx scripts/test-reports.ts",
+    "test:year": "tsx scripts/test-school-year.ts",
     "test:reset": "tsx scripts/test-reset.ts"
   },
   "dependencies": {

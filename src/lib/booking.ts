@@ -26,6 +26,7 @@ export type StudentRecord = {
   program: string;
   yearLevel: number;
   campus: string;
+  schoolYear: string;
   matchFirst: string;
   matchLast: string;
 };
@@ -56,6 +57,7 @@ function rowToStudent(row: Row): StudentRecord {
     program: String(row.program),
     yearLevel: Number(row.year_level ?? 1),
     campus: String(row.campus ?? "MAIN"),
+    schoolYear: String(row.school_year ?? ""),
     matchFirst: String(row.match_first),
     matchLast: String(row.match_last),
   };
@@ -93,9 +95,12 @@ export async function findStudentByCredentials(
   const last = normalizeLastName(lastName);
   if (!no || !last) return null;
 
+  const settings = await getSettings();
   const result = await db.execute({
-    sql: "SELECT * FROM students WHERE student_no = ? AND match_last = ? LIMIT 1",
-    args: [no, last],
+    sql: `SELECT * FROM students
+          WHERE student_no = ? AND match_last = ? AND school_year = ?
+          LIMIT 1`,
+    args: [no, last, settings.activeSchoolYear],
   });
   const row = result.rows[0];
   return row ? rowToStudent(row) : null;
