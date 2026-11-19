@@ -5,10 +5,12 @@ import {
   History,
   Pencil,
   Search,
+  Upload,
   UserPlus,
   Users,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
+import { requireSession } from "@/lib/auth";
 import { countStudents, listStudents, listStudentYears } from "@/lib/queries";
 import { getSettings } from "@/lib/settings";
 import { normalizeSchoolYear } from "@/lib/school-year";
@@ -33,6 +35,7 @@ export default async function StudentsPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
+  const session = await requireSession();
   const query = first(params.q);
   const yearParam = first(params.year);
   const page = Math.max(1, Number.parseInt(first(params.page) || "1", 10) || 1);
@@ -84,10 +87,21 @@ export default async function StudentsPage({
             {query ? " matched" : " total"}.
           </p>
         </div>
-        <Link href="/admin/students/new" className="btn-primary sm:w-auto">
-          <UserPlus className="h-4 w-4" />
-          Add student
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {session.role === "super_admin" && (
+            <Link
+              href="/admin/students/import"
+              className="btn-secondary sm:w-auto"
+            >
+              <Upload className="h-4 w-4" />
+              Import roster
+            </Link>
+          )}
+          <Link href="/admin/students/new" className="btn-primary sm:w-auto">
+            <UserPlus className="h-4 w-4" />
+            Add student
+          </Link>
+        </div>
       </div>
 
       {!viewingActive && (
