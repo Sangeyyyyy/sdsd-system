@@ -41,6 +41,55 @@ Students page has a school-year filter, including an **All school years**
 view. Editing a student never moves them to another year; only a roster import
 does that.
 
+### Importing a new school year
+
+A super admin replaces the active roster at **Students → Import roster**:
+
+1. Download the template for the new school year.
+2. Fill in the `ROSTER` sheet and upload the `.xlsx` file.
+3. Preview the file. The preview reports new and updated students, the
+   outgoing cohort, and any row errors.
+4. Tick the acknowledgement and import. The file stays in the browser until
+   the import succeeds.
+
+An import replaces the active cohort. Students who are not in the new file
+have their outstanding `booked` appointments cancelled (and the day's capacity
+released). Records with appointment history are archived: they keep their old
+school year, become inactive, and stay visible under the previous-year filter.
+Records with no history are deleted. The new roster becomes the active school
+year, and every import is recorded on the import page and in the activity log.
+
+The import is blocked while any row error exists. Headers are matched by name,
+so column order can change; extra columns and extra sheets are ignored. Blank
+rows are skipped.
+
+| Column | Required | Rules |
+|---|---|---|
+| Student ID | Yes | `YYYY-NNNNN`; the first four digits must match the school year |
+| First Name | Yes | 1–80 characters |
+| Middle Initial | No | Up to 5 characters |
+| Last Name | Yes | 1–80 characters |
+| Program | Yes | Program code, up to 40 characters (for example `BSIT`) |
+| Year Level | No | Must be `1` when filled in |
+| Campus | Yes | `MAIN` or `SAMAL` |
+| School Year | No | Must match the school year in the form |
+
+The same importer is available from the command line:
+
+```bash
+# Preview a file without writing anything
+npm run db:import -- --file excel/roster-2027.xlsx --year 2027-2028 --dry-run
+
+# Replace the active cohort (the default)
+npm run db:import -- --file excel/roster-2027.xlsx --year 2027-2028
+
+# Add or update rows without retiring the current cohort
+npm run db:import -- --file excel/roster-2027.xlsx --year 2027-2028 --mode merge
+```
+
+`--year` defaults to the active school year and `--file` defaults to
+`excel/roster.xlsx`.
+
 ## Features
 
 ### Student side
@@ -69,7 +118,9 @@ does that.
 - Daily appointment list with search, status filters, and campus filters.
 - Mark **Verified** or **No-show**, with undo.
 - CSV export and a print-friendly list.
-- Search the full student roster.
+- Search the full student roster, with a school-year filter and archived history.
+- Import a new school-year roster from an `.xlsx` workbook, with a preview and
+  super-admin-only replacement (see [Importing a new school year](#importing-a-new-school-year)).
 - Set the daily limit, same-day cutoff hour, and max rebookings.
 - Block specific dates (holidays, office events).
 - Enable or disable SAMAL booking.
@@ -254,21 +305,25 @@ below its current number of bookings.
 | `npm run build` | Production build |
 | `npm run start` | Start the production server |
 | `npm run db:init` | Create the schema and capacity horizon |
-| `npm run db:import` | Import `excel/roster.xlsx` |
-| `npm run db:import -- --fresh` | Clear students/appointments, then import |
+| `npm run db:import` | Import `excel/roster.xlsx` into the active school year |
+| `npm run db:import -- --file <path> --year <YYYY-YYYY>` | Import a specific workbook for a school year |
+| `npm run db:import -- --dry-run` | Preview an import without writing anything |
+| `npm run db:import -- --mode merge` | Add or update rows without retiring the current cohort |
 | `npm run db:seed` | Create the two bootstrap admin accounts |
 | `npm run db:seed -- --reset-passwords` | Restore the env passwords and super admin role |
 | `npm run test:booking` | Run the end-to-end booking test |
 | `npm run test:admin` | Run the account, role, and audit tests |
 | `npm run test:students` | Verify roster add/edit corrections |
 | `npm run test:year` | Verify active school-year gating and history |
+| `npm run test:roster-import` | Verify the workbook parser and template |
+| `npm run test:roster-replace` | Verify replace/merge imports and archiving |
 | `npm run test:cancel` | Verify student self-cancellation |
 | `npm run test:bulk` | Verify bulk status updates |
 | `npm run test:reports` | Verify report ranges and totals |
 | `npm run test:reset` | Verify the super-admin booking reset |
 
-`db:import -- --fresh` refuses to wipe data if appointments exist. Add
-`--force` only when you intentionally want to reset everything.
+Imports never run automatically. The in-app flow previews the file first and
+blocks confirmation while any row has an error.
 
 ## Deployment
 
@@ -285,11 +340,22 @@ a serverless host** — it will not persist. Use Turso (free tier) for productio
 
    ```bash
    DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:init
-   DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:import
+   DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:import -- --file excel/roster.xlsx --year 2026-2027
    DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:seed
    ```
 
 4. Deploy to Vercel (or any Node host) and build with `npm run build`.
+
+In production the app skips schema checks on each request. After deploying a
+release that adds columns or tables (for example `students.school_year`,
+`students.is_active`, and `roster_imports`), run the migration once:
+
+```bash
+FORCE_DB_INIT=1 DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:init
+```
+
+On PowerShell: `$env:FORCE_DB_INIT=1; npm run db:init`. The flag makes the
+normal idempotent setup run, then the app can return to skipping it.
 
 The libSQL client works over HTTP with Turso, so no persistent disk is needed.
 The app is pinned to the Node.js runtime for database access.

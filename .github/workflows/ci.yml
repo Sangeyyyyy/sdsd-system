@@ -47,6 +47,12 @@ jobs:
       - name: School-year tests
         run: npm run test:year
 
+      - name: Roster parser tests
+        run: npm run test:roster-import
+
+      - name: Roster replace tests
+        run: npm run test:roster-replace
+
       - name: Cancel tests
         run: npm run test:cancel
 
