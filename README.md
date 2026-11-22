@@ -305,6 +305,7 @@ below its current number of bookings.
 | `npm run build` | Production build |
 | `npm run start` | Start the production server |
 | `npm run db:init` | Create the schema and capacity horizon |
+| `npm run db:migrate` | Apply pending schema updates (safe to repeat) |
 | `npm run db:import` | Import `excel/roster.xlsx` into the active school year |
 | `npm run db:import -- --file <path> --year <YYYY-YYYY>` | Import a specific workbook for a school year |
 | `npm run db:import -- --dry-run` | Preview an import without writing anything |
@@ -321,6 +322,7 @@ below its current number of bookings.
 | `npm run test:bulk` | Verify bulk status updates |
 | `npm run test:reports` | Verify report ranges and totals |
 | `npm run test:reset` | Verify the super-admin booking reset |
+| `npm run test:migrate` | Verify production upgrades an older database |
 
 Imports never run automatically. The in-app flow previews the file first and
 blocks confirmation while any row has an error.
@@ -346,16 +348,22 @@ a serverless host** — it will not persist. Use Turso (free tier) for productio
 
 4. Deploy to Vercel (or any Node host) and build with `npm run build`.
 
-In production the app skips schema checks on each request. After deploying a
-release that adds columns or tables (for example `students.school_year`,
-`students.is_active`, and `roster_imports`), run the migration once:
+In production the app checks the database schema version once per server
+process. If the database is older than the running code, it applies the
+idempotent schema updates before serving that request; an up-to-date database
+pays one small `PRAGMA user_version` query per cold start. This means a deploy
+that adds columns or tables (for example `students.school_year`,
+`students.is_active`, and `roster_imports`) upgrades itself on first use.
+
+You can also run the migration explicitly, before or after deploying:
 
 ```bash
-FORCE_DB_INIT=1 DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:init
+DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:migrate
 ```
 
-On PowerShell: `$env:FORCE_DB_INIT=1; npm run db:init`. The flag makes the
-normal idempotent setup run, then the app can return to skipping it.
+`npm run db:init` still creates a new database and its capacity horizon.
+`FORCE_DB_INIT=1` forces the full setup even when the recorded version is
+current.
 
 The libSQL client works over HTTP with Turso, so no persistent disk is needed.
 The app is pinned to the Node.js runtime for database access.

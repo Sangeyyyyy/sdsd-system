@@ -44,20 +44,36 @@ export function getDb(): Client {
   return globalForDb.__sdsdDb;
 }
 
+/**
+ * Bump this whenever `SCHEMA_SQL` or a migration adds something a deploy
+ * needs. Production compares it with SQLite's `user_version` once per server
+ * process, so a release can update an older database without running DDL on
+ * every request.
+ */
+export const SCHEMA_VERSION = 1;
+
+async function applySchema(db: Client): Promise<void> {
+  await db.executeMultiple(SCHEMA_SQL);
+  await migrateAdminAccounts(db);
+  await migrateStudents(db);
+  await ensureBootstrapSuperAdmin(db);
+  await db.execute(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+}
+
 /** Ensures the schema exists before the first query. Safe to call repeatedly. */
 export async function ensureDb(): Promise<Client> {
   const db = getDb();
-  // In production, tables are already created during `npm run db:init`.
-  // Skipping redundant DDL checks saves 3 sequential network round-trips on every serverless lambda cold start.
-  if (process.env.NODE_ENV === "production" && !process.env.FORCE_DB_INIT) {
-    return db;
-  }
   if (!globalForDb.__sdsdDbReady) {
     globalForDb.__sdsdDbReady = (async () => {
-      await db.executeMultiple(SCHEMA_SQL);
-      await migrateAdminAccounts(db);
-      await migrateStudents(db);
-      await ensureBootstrapSuperAdmin(db);
+      if (process.env.NODE_ENV === "production" && !process.env.FORCE_DB_INIT) {
+        const current = await db.execute("PRAGMA user_version");
+        const version = Number(current.rows[0]?.user_version ?? 0);
+        if (version >= SCHEMA_VERSION) return;
+        console.warn(
+          `Database schema ${version} is older than ${SCHEMA_VERSION}; applying migrations.`,
+        );
+      }
+      await applySchema(db);
     })().catch((error) => {
       // Do not cache a failed setup: a later request can retry cleanly.
       globalForDb.__sdsdDbReady = undefined;
@@ -81,13 +97,30 @@ const ADMIN_COLUMNS: Array<[string, string]> = [
   ["password_changed_at", "TEXT"],
 ];
 
+/**
+ * Adds a column unless it already exists. Two cold starts can race the
+ * `PRAGMA table_info` check, so a duplicate-column error counts as done.
+ */
+async function addColumn(
+  db: Client,
+  table: string,
+  name: string,
+  definition: string,
+): Promise<void> {
+  try {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+  } catch (error) {
+    if (!/duplicate column name/i.test(String(error))) throw error;
+  }
+}
+
 async function migrateAdminAccounts(db: Client): Promise<void> {
   const info = await db.execute("PRAGMA table_info(admins)");
   const existing = new Set(info.rows.map((row) => String(row.name)));
 
   for (const [name, definition] of ADMIN_COLUMNS) {
     if (existing.has(name)) continue;
-    await db.execute(`ALTER TABLE admins ADD COLUMN ${name} ${definition}`);
+    await addColumn(db, "admins", name, definition);
   }
 }
 
@@ -106,7 +139,7 @@ async function migrateStudents(db: Client): Promise<void> {
 
   for (const [name, definition] of STUDENT_COLUMNS) {
     if (existing.has(name)) continue;
-    await db.execute(`ALTER TABLE students ADD COLUMN ${name} ${definition}`);
+    await addColumn(db, "students", name, definition);
   }
 
   // Created here rather than in SCHEMA_SQL: on an older database the column

@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "db:init": "tsx scripts/init-db.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:import": "tsx scripts/import-roster.ts",
     "db:seed": "tsx scripts/seed.ts",
     "test:booking": "tsx scripts/test-booking.ts",
@@ -20,7 +21,8 @@
     "test:year": "tsx scripts/test-school-year.ts",
     "test:roster-import": "tsx scripts/test-roster-import.ts",
     "test:roster-replace": "tsx scripts/test-roster-replace.ts",
-    "test:reset": "tsx scripts/test-reset.ts"
+    "test:reset": "tsx scripts/test-reset.ts",
+    "test:migrate": "tsx scripts/test-migrate.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

@@ -64,3 +64,6 @@ jobs:
 
       - name: Reset tests
         run: npm run test:reset
+
+      - name: Migration tests
+        run: npm run test:migrate
