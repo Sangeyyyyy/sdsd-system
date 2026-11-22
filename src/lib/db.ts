@@ -46,18 +46,52 @@ export function getDb(): Client {
 
 /**
  * Bump this whenever `SCHEMA_SQL` or a migration adds something a deploy
- * needs. Production compares it with SQLite's `user_version` once per server
- * process, so a release can update an older database without running DDL on
- * every request.
+ * needs. Production compares it with the version recorded in the
+ * `_schema_version` table once per server process, so a release can update an
+ * older database without running DDL on every request.
+ *
+ * Turso Cloud makes `PRAGMA user_version` read-only, so the version lives in a
+ * table instead of the SQLite header. Local SQLite databases use the same
+ * table, which keeps one code path for both.
  */
 export const SCHEMA_VERSION = 1;
+
+const SCHEMA_VERSION_TABLE = "_schema_version";
+
+/** Reads the recorded schema version, treating a missing table as version 0. */
+export async function readSchemaVersion(db: Client): Promise<number> {
+  const exists = await db.execute({
+    sql: "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+    args: [SCHEMA_VERSION_TABLE],
+  });
+  if (exists.rows.length === 0) return 0;
+
+  const result = await db.execute(
+    `SELECT version FROM ${SCHEMA_VERSION_TABLE} WHERE id = 1`,
+  );
+  return Number(result.rows[0]?.version ?? 0);
+}
+
+async function writeSchemaVersion(db: Client): Promise<void> {
+  await db.executeMultiple(`
+CREATE TABLE IF NOT EXISTS ${SCHEMA_VERSION_TABLE} (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  version INTEGER NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+  await db.execute({
+    sql: `INSERT OR REPLACE INTO ${SCHEMA_VERSION_TABLE} (id, version) VALUES (1, ?)`,
+    args: [SCHEMA_VERSION],
+  });
+}
 
 async function applySchema(db: Client): Promise<void> {
   await db.executeMultiple(SCHEMA_SQL);
   await migrateAdminAccounts(db);
   await migrateStudents(db);
   await ensureBootstrapSuperAdmin(db);
-  await db.execute(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  await writeSchemaVersion(db);
 }
 
 /** Ensures the schema exists before the first query. Safe to call repeatedly. */
@@ -66,8 +100,7 @@ export async function ensureDb(): Promise<Client> {
   if (!globalForDb.__sdsdDbReady) {
     globalForDb.__sdsdDbReady = (async () => {
       if (process.env.NODE_ENV === "production" && !process.env.FORCE_DB_INIT) {
-        const current = await db.execute("PRAGMA user_version");
-        const version = Number(current.rows[0]?.user_version ?? 0);
+        const version = await readSchemaVersion(db);
         if (version >= SCHEMA_VERSION) return;
         console.warn(
           `Database schema ${version} is older than ${SCHEMA_VERSION}; applying migrations.`,

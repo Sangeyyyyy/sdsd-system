@@ -351,9 +351,11 @@ a serverless host** — it will not persist. Use Turso (free tier) for productio
 In production the app checks the database schema version once per server
 process. If the database is older than the running code, it applies the
 idempotent schema updates before serving that request; an up-to-date database
-pays one small `PRAGMA user_version` query per cold start. This means a deploy
-that adds columns or tables (for example `students.school_year`,
+pays one small lookup in the `_schema_version` table per cold start. This means
+a deploy that adds columns or tables (for example `students.school_year`,
 `students.is_active`, and `roster_imports`) upgrades itself on first use.
+Turso Cloud makes `PRAGMA user_version` read-only, so the version is stored in
+a table rather than the SQLite header.
 
 You can also run the migration explicitly, before or after deploying:
 

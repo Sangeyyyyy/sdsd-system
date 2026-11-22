@@ -12,10 +12,11 @@ import "./env";
 
 process.env.FORCE_DB_INIT = "1";
 
-const { ensureDb, SCHEMA_VERSION } = await import("../src/lib/db");
+const { ensureDb, readSchemaVersion, SCHEMA_VERSION } = await import(
+  "../src/lib/db"
+);
 
 const db = await ensureDb();
-const result = await db.execute("PRAGMA user_version");
-const version = Number(result.rows[0]?.user_version ?? 0);
+const version = await readSchemaVersion(db);
 
 console.log(`Database schema is at version ${version} (latest ${SCHEMA_VERSION}).`);

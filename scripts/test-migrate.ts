@@ -61,7 +61,9 @@ await legacy.close();
 (process.env as Record<string, string | undefined>).NODE_ENV = "production";
 delete process.env.FORCE_DB_INIT;
 
-const { ensureDb, SCHEMA_VERSION } = await import("../src/lib/db");
+const { ensureDb, readSchemaVersion, SCHEMA_VERSION } = await import(
+  "../src/lib/db"
+);
 const db = await ensureDb();
 
 let passed = 0;
@@ -94,6 +96,7 @@ const tableNames = new Set(tables.rows.map((row) => String(row.name)));
 check("roster_imports is created", tableNames.has("roster_imports"));
 check("appointments is created", tableNames.has("appointments"));
 check("settings is kept", tableNames.has("settings"));
+check("schema version table is created", tableNames.has("_schema_version"));
 
 const existing = await db.execute({
   sql: "SELECT school_year, is_active FROM students WHERE student_no = ?",
@@ -110,11 +113,21 @@ check(
   Number(existing.rows[0]?.is_active) === 1,
 );
 
-const version = await db.execute("PRAGMA user_version");
+const version = await db.execute(
+  "SELECT version FROM _schema_version WHERE id = 1",
+);
 check(
   "schema version is recorded",
-  Number(version.rows[0]?.user_version) === SCHEMA_VERSION,
-  `${version.rows[0]?.user_version} vs ${SCHEMA_VERSION}`,
+  Number(version.rows[0]?.version) === SCHEMA_VERSION,
+  `${version.rows[0]?.version} vs ${SCHEMA_VERSION}`,
+);
+
+// Turso Cloud keeps `PRAGMA user_version` read-only, so the version must come
+// from the table even when the header value is stale.
+await db.execute("PRAGMA user_version = 0");
+check(
+  "schema version does not depend on user_version",
+  (await readSchemaVersion(db)) === SCHEMA_VERSION,
 );
 
 let secondCall = true;
